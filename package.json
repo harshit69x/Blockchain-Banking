@@ -1,0 +1,32 @@
+{
+  "name": "blockchain-banking-ssi",
+  "version": "1.0.0",
+  "description": "Blockchain-backed Banking with SSI & Verifiable Credentials",
+  "main": "truffle-config.js",
+  "scripts": {
+    "compile": "truffle compile",
+    "migrate": "truffle migrate --reset --network development",
+    "test": "truffle test",
+    "console": "truffle console",
+    "dev": "cd frontend && npm run dev"
+  },
+  "keywords": [
+    "blockchain",
+    "banking",
+    "ssi",
+    "verifiable-credentials",
+    "ethereum",
+    "truffle"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@openzeppelin/contracts": "^4.8.0",
+    "@truffle/hdwallet-provider": "^2.1.15",
+    "chai": "^4.3.10",
+    "truffle": "^5.11.5"
+  },
+  "dependencies": {
+    "web3": "^1.10.0"
+  }
+}

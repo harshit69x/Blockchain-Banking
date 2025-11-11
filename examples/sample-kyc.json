@@ -1,0 +1,31 @@
+{
+  "name": "John Doe",
+  "dateOfBirth": "1990-01-15",
+  "nationality": "United States",
+  "documentType": "Passport",
+  "documentNumber": "P1234567",
+  "issueDate": "2020-01-01",
+  "expiryDate": "2030-01-01",
+  "address": {
+    "street": "123 Main Street",
+    "city": "New York",
+    "state": "NY",
+    "zipCode": "10001",
+    "country": "USA"
+  },
+  "contact": {
+    "email": "john.doe@example.com",
+    "phone": "+1-555-0100"
+  },
+  "verificationLevel": "FULL_KYC",
+  "verifiedBy": "Bank of Blockchain",
+  "verificationDate": "2024-01-01T10:00:00Z",
+  "status": "VERIFIED",
+  "biometricHash": "0x1234567890abcdef...",
+  "riskScore": "LOW",
+  "complianceChecks": {
+    "aml": "PASSED",
+    "sanctions": "PASSED",
+    "pep": "PASSED"
+  }
+}
