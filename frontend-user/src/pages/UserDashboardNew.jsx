@@ -6,10 +6,12 @@ import {
   TrendingUp, Activity, Plus, Minus, ArrowRight, Copy, ExternalLink,
   Award, Sparkles, Lock, Unlock, RefreshCw, Eye, EyeOff
 } from 'lucide-react';
+import KYCForm from '../components/KYCForm';
 
 function UserDashboardNew({ web3, account, contract, showToast }) {
   const [vcStatus, setVcStatus] = useState(null);
   const [vcTokenId, setVcTokenId] = useState(null);
+  const [vcTokenURI, setVcTokenURI] = useState(null);
   const [balance, setBalance] = useState('0');
   const [kycData, setKycData] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
@@ -54,12 +56,22 @@ function UserDashboardNew({ web3, account, contract, showToast }) {
         if (isTokenRevoked === true) {
           setVcStatus('revoked');
           setVcTokenId(null);
+          setVcTokenURI(null);
         } else if (isValid === true) {
           setVcStatus('has-vc');
           setVcTokenId(tokenId);
+          
+          // Load token URI for IPFS link
+          try {
+            const uri = await contract.methods.tokenURI(tokenId).call();
+            setVcTokenURI(uri);
+          } catch (e) {
+            console.error('Error loading token URI:', e);
+          }
         } else {
           setVcStatus('none');
           setVcTokenId(null);
+          setVcTokenURI(null);
         }
       } else {
         const requestIds = await contract.methods.getUserRequests(account).call();
@@ -89,7 +101,8 @@ function UserDashboardNew({ web3, account, contract, showToast }) {
 
   const loadBalance = async () => {
     try {
-      const bal = await contract.methods.getBalance(account).call();
+      // balance is a public mapping, access it directly
+      const bal = await contract.methods.balance(account).call();
       setBalance(web3.utils.fromWei(bal, 'ether'));
     } catch (error) {
       console.error('Error loading balance:', error);
@@ -197,24 +210,15 @@ function UserDashboardNew({ web3, account, contract, showToast }) {
     }
   };
 
-  const handleRequestVC = async () => {
-    if (!kycData.trim()) {
-      showToast('Please enter KYC data', 'error');
-      return;
-    }
-
-    try {
-      JSON.parse(kycData);
-    } catch {
-      showToast('Invalid JSON format', 'error');
-      return;
-    }
-
+  const handleRequestVC = async (formData) => {
+    // formData comes from KYCForm component as an object
     setLoading(true);
     try {
-      await contract.methods.requestVC(kycData).send({ from: account });
+      // Convert form data object to JSON string for smart contract
+      const kycDataString = JSON.stringify(formData);
+      
+      await contract.methods.requestVC(kycDataString).send({ from: account });
       showToast('VC request submitted successfully!', 'success');
-      setKycData('');
       await loadUserData();
     } catch (error) {
       console.error('Error requesting VC:', error);
@@ -628,30 +632,12 @@ function UserDashboardNew({ web3, account, contract, showToast }) {
                       Request Your Credential
                     </h4>
                     <p className="text-gray-600 text-center mb-6">
-                      Submit your KYC data to get verified and access banking services
+                      Complete the secure KYC form to get verified and access banking services
                     </p>
                   </div>
                   
-                  <div className="max-w-2xl mx-auto">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      KYC Data (JSON format):
-                    </label>
-                    <textarea
-                      value={kycData}
-                      onChange={(e) => setKycData(e.target.value)}
-                      placeholder='{"name": "John Doe", "dob": "1990-01-01", "address": "123 Main St"}'
-                      className="w-full h-48 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none font-mono text-sm resize-none"
-                    />
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleRequestVC}
-                      disabled={loading}
-                      className="w-full mt-4 px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                    >
-                      <Send className="w-5 h-5" />
-                      Submit Request
-                    </motion.button>
+                  <div className="max-w-4xl mx-auto">
+                    <KYCForm onSubmit={handleRequestVC} loading={loading} />
                   </div>
                 </div>
               )}
@@ -680,10 +666,23 @@ function UserDashboardNew({ web3, account, contract, showToast }) {
                     <p className="text-green-100 mb-6">
                       You have an active verifiable credential
                     </p>
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 inline-block">
+                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 inline-block mb-4">
                       <p className="text-sm text-green-100 mb-1">Token ID</p>
                       <p className="text-2xl font-bold">#{vcTokenId}</p>
                     </div>
+                    {vcTokenURI && (
+                      <a
+                        href={`https://gateway.pinata.cloud/ipfs/${vcTokenURI.replace('ipfs://', '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/30 transition-all"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        View on IPFS
+                      </a>
+                    )}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-gray-50 rounded-xl p-6">

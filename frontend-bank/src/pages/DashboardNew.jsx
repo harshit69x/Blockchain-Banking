@@ -6,6 +6,8 @@ import {
   Award, Shield, AlertCircle, BarChart3, Activity, Zap
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { uploadKYCMetadata, testPinataConnection } from '../utils/pinataUpload';
+import KYCDataViewer from '../components/KYCDataViewer';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -23,9 +25,9 @@ function DashboardNew({ web3, account, contract, showToast }) {
   const [selectedPeriod, setSelectedPeriod] = useState('today');
   const [loading, setLoading] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [ipfsCID, setIpfsCID] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [pinataReady, setPinataReady] = useState(false);
 
   useEffect(() => {
     if (contract) {
@@ -34,6 +36,11 @@ function DashboardNew({ web3, account, contract, showToast }) {
       return () => clearInterval(interval);
     }
   }, [contract, selectedPeriod]);
+
+  useEffect(() => {
+    // Test Pinata connection on mount
+    testPinataConnection().then(setPinataReady);
+  }, []);
 
   const loadDashboardData = async () => {
     try {
@@ -127,14 +134,15 @@ function DashboardNew({ web3, account, contract, showToast }) {
 
   const loadStats = async () => {
     try {
-      const totalVCs = await contract.methods.tokenIdCounter().call();
+      const nextTokenId = await contract.methods.nextTokenId().call();
+      const totalVCs = parseInt(nextTokenId) - 1; // nextTokenId is counter, so VCs = counter - 1
       const totalDeposits = allTransactions.filter(t => t.type === 'Deposit').length;
       const totalWithdrawals = allTransactions.filter(t => t.type === 'Withdrawal').length;
       const totalTransfers = allTransactions.filter(t => t.type === 'Transfer').length;
 
       setStats(prev => ({
         ...prev,
-        totalVCs: parseInt(totalVCs),
+        totalVCs: totalVCs > 0 ? totalVCs : 0,
         totalDeposits,
         totalWithdrawals,
         totalTransfers
@@ -192,21 +200,38 @@ function DashboardNew({ web3, account, contract, showToast }) {
   };
 
   const handleApproveRequest = async (request) => {
-    if (!ipfsCID.trim()) {
-      showToast('Please enter IPFS CID', 'error');
+    if (!pinataReady) {
+      showToast('⚠️ Pinata IPFS not configured. Check .env file', 'error');
       return;
     }
 
     setLoading(true);
     try {
+      // Parse KYC data
+      let kycData;
+      try {
+        kycData = JSON.parse(request.kycData);
+      } catch (e) {
+        showToast('❌ Invalid KYC data format', 'error');
+        setLoading(false);
+        return;
+      }
+
+      // Upload to IPFS via Pinata
+      showToast('📤 Uploading to IPFS...', 'info');
+      const ipfsCID = await uploadKYCMetadata(kycData, request.requester);
+      
+      showToast(`✅ Uploaded to IPFS: ${ipfsCID.substring(0, 10)}...`, 'success');
+
+      // Approve VC with the CID
       await contract.methods.approveVCRequest(request.id, ipfsCID).send({ from: account });
-      showToast('VC Request approved successfully!', 'success');
+      
+      showToast('🎉 VC Request approved successfully!', 'success');
       setSelectedRequest(null);
-      setIpfsCID('');
       await loadDashboardData();
     } catch (error) {
       console.error('Error approving request:', error);
-      showToast('Failed to approve request', 'error');
+      showToast(`❌ Failed: ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -318,6 +343,17 @@ function DashboardNew({ web3, account, contract, showToast }) {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              {pinataReady ? (
+                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium">
+                  <CheckCircle className="w-4 h-4" />
+                  IPFS Ready
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 text-orange-700 rounded-lg text-sm font-medium">
+                  <AlertCircle className="w-4 h-4" />
+                  IPFS Not Configured
+                </div>
+              )}
               <button
                 onClick={() => loadDashboardData()}
                 disabled={loading}
@@ -523,62 +559,34 @@ function DashboardNew({ web3, account, contract, showToast }) {
                             <strong>Requested:</strong> {request.requestedAt.toLocaleString()}
                           </p>
                           <details className="mt-3">
-                            <summary className="cursor-pointer text-blue-600 hover:text-blue-700 font-semibold text-sm">
-                              View KYC Data
+                            <summary className="cursor-pointer text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center gap-1">
+                              <Shield className="w-4 h-4" />
+                              View Secure KYC Data
                             </summary>
-                            <pre className="mt-2 p-4 bg-gray-100 rounded-lg text-xs overflow-auto">
-                              {JSON.stringify(JSON.parse(request.kycData), null, 2)}
-                            </pre>
+                            <div className="mt-3">
+                              <KYCDataViewer kycData={request.kycData} />
+                            </div>
                           </details>
                         </div>
 
                         <div className="flex flex-col gap-3">
-                          {selectedRequest === request.id ? (
-                            <div className="bg-white p-4 rounded-lg">
-                              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                IPFS CID:
-                              </label>
-                              <input
-                                type="text"
-                                value={ipfsCID}
-                                onChange={(e) => setIpfsCID(e.target.value)}
-                                placeholder="QmXxxx..."
-                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none text-sm mb-3"
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleApproveRequest(request)}
-                                  disabled={loading}
-                                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 text-sm font-semibold"
-                                >
-                                  Confirm
-                                </button>
-                                <button
-                                  onClick={() => setSelectedRequest(null)}
-                                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors text-sm font-semibold"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => setSelectedRequest(request.id)}
-                                disabled={loading}
-                                className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50 font-semibold shadow-md hover:shadow-lg"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => handleRejectRequest(request.id)}
-                                disabled={loading}
-                                className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 font-semibold shadow-md hover:shadow-lg"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
+                          <button
+                            onClick={() => handleApproveRequest(request)}
+                            disabled={loading || !pinataReady}
+                            className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50 font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                            title={!pinataReady ? "Pinata IPFS not configured" : "Upload to IPFS and approve"}
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRejectRequest(request.id)}
+                            disabled={loading}
+                            className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Reject
+                          </button>
                         </div>
                       </div>
                     </motion.div>
@@ -652,15 +660,30 @@ function DashboardNew({ web3, account, contract, showToast }) {
                         </p>
                       </div>
 
-                      {vc.isValid && (
-                        <button
-                          onClick={() => handleRevokeVC(vc.tokenId)}
-                          disabled={loading}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 font-semibold text-sm shadow-md hover:shadow-lg"
-                        >
-                          Revoke VC
-                        </button>
-                      )}
+                      <div className="flex flex-col gap-2">
+                        {vc.tokenURI && (
+                          <a
+                            href={`https://gateway.pinata.cloud/ipfs/${vc.tokenURI.replace('ipfs://', '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all font-semibold text-sm shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            View on IPFS
+                          </a>
+                        )}
+                        {vc.isValid && (
+                          <button
+                            onClick={() => handleRevokeVC(vc.tokenId)}
+                            disabled={loading}
+                            className="w-full px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 font-semibold text-sm shadow-md hover:shadow-lg"
+                          >
+                            Revoke VC
+                          </button>
+                        )}
+                      </div>
                     </motion.div>
                   ))}
                 </div>
