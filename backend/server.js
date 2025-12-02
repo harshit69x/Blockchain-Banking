@@ -19,6 +19,10 @@ import {
   testAuthentication
 } from './pinata.js';
 
+// IoT routes (CommonJS - will be converted)
+import iotRoutes from './routes/iot.js';
+import blockchainService from './utils/blockchain.js';
+
 dotenv.config();
 
 const app = express();
@@ -41,14 +45,22 @@ const upload = multer({
   }
 });
 
+// Initialize blockchain service
+blockchainService.initialize()
+  .then(() => console.log('✅ Blockchain service ready'))
+  .catch(err => console.error('❌ Blockchain initialization failed:', err.message));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    service: 'Blockchain Banking IPFS Service'
+    service: 'Blockchain Banking IPFS + IoT Service'
   });
 });
+
+// Mount IoT routes
+app.use('/api/iot', iotRoutes);
 
 /**
  * POST /api/upload/json
@@ -283,9 +295,10 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Blockchain Banking IPFS Server running on port ${PORT}`);
+  console.log(`🚀 Blockchain Banking IPFS + IoT Server running on port ${PORT}`);
   console.log(`📡 CORS enabled for: ${ALLOWED_ORIGINS.join(', ')}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔌 IoT endpoints available at /api/iot/*`);
   
   // Test Pinata connection on startup
   testAuthentication()

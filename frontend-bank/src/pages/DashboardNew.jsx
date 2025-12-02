@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, FileCheck, TrendingUp, Clock, CheckCircle, XCircle,
   Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, Search, 
-  Award, Shield, AlertCircle, BarChart3, Activity, Zap
+  Award, Shield, AlertCircle, BarChart3, Activity, Zap, CreditCard
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { uploadKYCMetadata, testPinataConnection } from '../utils/pinataUpload';
 import KYCDataViewer from '../components/KYCDataViewer';
+import CardManagement from '../components/CardManagement';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -408,7 +409,8 @@ function DashboardNew({ web3, account, contract, showToast }) {
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'requests', label: 'VC Requests', icon: FileCheck },
               { id: 'issued', label: 'Issued VCs', icon: Shield },
-              { id: 'transactions', label: 'Transactions', icon: Activity }
+              { id: 'transactions', label: 'Transactions', icon: Activity },
+              { id: 'cards', label: 'RFID Cards', icon: CreditCard }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -688,6 +690,17 @@ function DashboardNew({ web3, account, contract, showToast }) {
                   ))}
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {activeTab === 'cards' && (
+            <motion.div
+              key="cards"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+            >
+              <CardManagement showToast={showToast} />
             </motion.div>
           )}
 

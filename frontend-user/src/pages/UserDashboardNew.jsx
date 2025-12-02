@@ -4,9 +4,10 @@ import {
   Wallet, CreditCard, Send, ArrowDownRight, ArrowUpRight, 
   Shield, CheckCircle, XCircle, Clock, AlertCircle, FileText,
   TrendingUp, Activity, Plus, Minus, ArrowRight, Copy, ExternalLink,
-  Award, Sparkles, Lock, Unlock, RefreshCw, Eye, EyeOff
+  Award, Sparkles, Lock, Unlock, RefreshCw, Eye, EyeOff, Zap
 } from 'lucide-react';
 import KYCForm from '../components/KYCForm';
+import IoTTestPanel from '../components/IoTTestPanel';
 
 function UserDashboardNew({ web3, account, contract, showToast }) {
   const [vcStatus, setVcStatus] = useState(null);
@@ -465,7 +466,8 @@ function UserDashboardNew({ web3, account, contract, showToast }) {
               { id: 'vc', label: 'Credentials', icon: Shield },
               { id: 'banking', label: 'Banking', icon: Wallet },
               { id: 'transfer', label: 'Transfer', icon: Send },
-              { id: 'history', label: 'History', icon: FileText }
+              { id: 'history', label: 'History', icon: FileText },
+              { id: 'iot', label: 'IoT Testing', icon: Zap }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -959,6 +961,17 @@ function UserDashboardNew({ web3, account, contract, showToast }) {
                   </li>
                 </ul>
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'iot' && (
+            <motion.div
+              key="iot"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+            >
+              <IoTTestPanel account={account} contract={contract} showToast={showToast} />
             </motion.div>
           )}
 

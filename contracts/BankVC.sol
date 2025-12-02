@@ -310,6 +310,38 @@ contract BankVC is ERC721URIStorage, AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Bank-authorized transfer (for IoT/RFID transactions)
+     * Bank acts as trusted intermediary to execute transfers on behalf of verified cardholders
+     * @param from Address to transfer from (cardholder)
+     * @param to Address to transfer to (merchant)
+     * @param amount Amount to transfer
+     */
+    function bankAuthorizedTransfer(address from, address to, uint256 amount) 
+        external 
+        onlyRole(BANK_ROLE)
+        nonReentrant 
+        whenNotPaused 
+    {
+        require(from != address(0), "Cannot transfer from zero address");
+        require(to != address(0), "Cannot transfer to zero address");
+        require(from != to, "Cannot transfer to yourself");
+        require(amount > 0, "Transfer amount must be greater than 0");
+        require(balance[from] >= amount, "Insufficient balance");
+
+        // Check sender has valid VC
+        uint256 senderTokenId = userToTokenId[from];
+        require(senderTokenId != 0, "Sender has no VC");
+        require(isValidVC(senderTokenId), "Sender VC is not valid");
+
+        // Note: Recipient doesn't need VC for receiving (e.g., merchants)
+        
+        balance[from] -= amount;
+        balance[to] += amount;
+        
+        emit Transfer(from, to, amount, block.timestamp);
+    }
+
+    /**
      * @dev Get user's VC token ID
      * @param user Address of the user
      * @return tokenId The user's VC token ID (0 if none)

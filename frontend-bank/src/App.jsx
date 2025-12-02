@@ -6,7 +6,7 @@ import Web3Modal from 'web3modal';
 import BankVCArtifact from '../../build/contracts/BankVC.json';
 import DashboardNew from './pages/DashboardNew';
 
-const CONTRACT_ADDRESS = '0xdB5Ac67B909d77F52086fC6876688Ebd3e41B2CD';
+const CONTRACT_ADDRESS = '0x7dd618F0beaD43ada20e946a712fd218Bb2cf915';
 
 function App() {
   const [web3, setWeb3] = useState(null);
